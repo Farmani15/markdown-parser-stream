@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Markdown Parser Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-bottom: 12px;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 32px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-box {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 12px;
+            border-radius: 6px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2563eb;
+        }
+
+        .markdown-container {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 24px;
+            min-height: 300px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+        }
+
+        .markdown-container code {
+            background: #0f0f0f;
+            color: #2563eb;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+        }
+
+        .markdown-container code[data-block="true"] {
+            display: block;
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 12px 0;
+            overflow-x: auto;
+            color: #2563eb;
+            line-height: 1.5;
+        }
+
+        .info {
+            margin-top: 24px;
+            padding: 12px;
+            background: #1a1a1a;
+            border-left: 3px solid #2563eb;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Streaming Markdown Parser</h1>
+        <p class="subtitle">Real-time markdown parsing with inline code and code block support</p>
+
+        <div class="controls">
+            <button onclick="startStream()">Start Stream</button>
+            <button onclick="clearDemo()">Clear</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-label">Characters</div>
+                <div class="stat-value" id="charCount">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Inline Code</div>
+                <div class="stat-value" id="inlineCodeCount">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Code Blocks</div>
+                <div class="stat-value" id="codeBlockCount">0</div>
+            </div>
+        </div>
+
+        <div class="markdown-container" id="markdownContainer"></div>
+
+        <div class="info">
+            💡 The parser optimistically styles code as soon as backticks are detected. Tokens can split across backticks, and the parser handles multiple state transitions within a single token.
+        </div>
+    </div>
+
+    <script>
+        const blogpostMarkdown = `# control
+
+*humans should focus on bigger problems*
+
+## Setup
+
+\`\`\`bash
+git clone git@github.com:anysphere/control
+\`\`\`
+
+\`\`\`bash
+./init.sh
+\`\`\`
+
+## Folder structure
+
+**The most important folders are:**
+
+1. \`vscode\`: this is our fork of vscode, as a submodule.
+2. \`milvus\`: this is where our Rust server code lives.
+3. \`schema\`: this is our Protobuf definitions for communication between the client and the server.
+
+Each of the above folders should contain fairly comprehensive README files; please read them. If something is missing, or not working, please add it to the README!
+
+Some less important folders:
+
+1. \`release\`: this is a collection of scripts and guides for releasing various things.
+2. \`infra\`: infrastructure definitions for the on-prem deployment.
+3. \`third_party\`: where we keep our vendored third party dependencies.
+
+## Miscellaneous things that may or may not be useful
+
+##### Where to find rust-proto definitions
+
+They are in a file called \`aiserver.v1.rs\`. It might not be clear where that file is. Run \`rg --files --no-ignore bazel-out | rg aiserver.v1.rs\` to find the file.
+
+## Releasing
+
+Within \`vscode/\`:
+
+- Bump the version
+- Then:
+
+\`\`\`
+git checkout build-todesktop
+git merge main
+git push origin build-todesktop
+\`\`\`
+
+- Wait for 14 minutes for gulp and ~30 minutes for todesktop
+- Go to todesktop.com, test the build locally and hit release
+`;
+
+        let currentContainer = null;
+        let inlineCodeState = false;
+        let codeBlockState = false;
+        let backtickBuffer = "";
+        let currentCodeElement = null;
+        let stats = { chars: 0, inlineCode: 0, codeBlocks: 0 };
+
+        function startStream() {
+            clearDemo();
+            currentContainer = document.getElementById('markdownContainer');
+            inlineCodeState = false;
+            codeBlockState = false;
+            backtickBuffer = "";
+            currentCodeElement = null;
+            stats = { chars: 0, inlineCode: 0, codeBlocks: 0 };
+
+            const tokens = [];
+            let remainingMarkdown = blogpostMarkdown;
+            while (remainingMarkdown.length > 0) {
+                const tokenLength = Math.floor(Math.random() * 18) + 2;
+                const token = remainingMarkdown.slice(0, tokenLength);
+                tokens.push(token);
+                remainingMarkdown = remainingMarkdown.slice(tokenLength);
+            }
+
+            const toCancel = setInterval(() => {
+                const token = tokens.shift();
+                if (token) {
+                    addToken(token);
+                } else {
+                    clearInterval(toCancel);
+                }
+            }, 20);
+        }
+
+        function addToken(token) {
+            if (!currentContainer) return;
+
+            let i = 0;
+            while (i < token.length) {
+                const char = token[i];
+                backtickBuffer += char;
+
+                // Check for triple backticks (code block) - must check before single backtick
+                if (backtickBuffer.length >= 3 && backtickBuffer.endsWith("```")) {
+                    backtickBuffer = backtickBuffer.slice(0, -3);
+
+                    // Flush buffer content to current element
+                    if (backtickBuffer) {
+                        flushBuffer();
+                    }
+
+                    // Toggle code block state
+                    codeBlockState = !codeBlockState;
+                    inlineCodeState = false; // Exit inline code if in it
+                    backtickBuffer = "";
+
+                    if (codeBlockState) {
+                        stats.codeBlocks++;
+                    }
+
+                    // Update current code element
+                    if (codeBlockState) {
+                        currentCodeElement = document.createElement("code");
+                        currentCodeElement.setAttribute('data-block', 'true');
+                        currentContainer.appendChild(currentCodeElement);
+                    } else {
+                        currentCodeElement = null;
+                    }
+                }
+                // Check for single backtick (inline code) - only if not in code block
+                else if (backtickBuffer.length >= 1 && backtickBuffer.endsWith("`") && !codeBlockState) {
+                    // Make sure this isn't part of triple backticks
+                    const prevChars = backtickBuffer.length >= 3 ? backtickBuffer.slice(-3) : backtickBuffer;
+                    if (prevChars !== "```" && !prevChars.endsWith("``")) {
+                        backtickBuffer = backtickBuffer.slice(0, -1);
+
+                        // Flush buffer content
+                        if (backtickBuffer) {
+                            flushBuffer();
+                        }
+
+                        // Toggle inline code state
+                        inlineCodeState = !inlineCodeState;
+                        backtickBuffer = "";
+
+                        if (inlineCodeState) {
+                            stats.inlineCode++;
+                        }
+
+                        // Update current code element
+                        if (inlineCodeState) {
+                            currentCodeElement = document.createElement("code");
+                            currentContainer.appendChild(currentCodeElement);
+                        } else {
+                            currentCodeElement = null;
+                        }
+                    }
+                }
+                // If buffer is getting long and doesn't look like it will be backticks, flush partial content
+                else if (backtickBuffer.length >= 3 && !backtickBuffer.endsWith("`")) {
+                    const contentToFlush = backtickBuffer.slice(0, -2);
+                    if (contentToFlush) {
+                        addTextToElement(contentToFlush, codeBlockState || inlineCodeState);
+                    }
+                    backtickBuffer = backtickBuffer.slice(-2);
+                }
+
+                i++;
+            }
+
+            // Flush remaining buffer if it looks like regular text (not potential backticks)
+            if (backtickBuffer.length >= 2 && !backtickBuffer.includes("`")) {
+                flushBuffer();
+            }
+
+            updateStats();
+        }
+
+        function flushBuffer() {
+            if (backtickBuffer) {
+                addTextToElement(backtickBuffer, codeBlockState || inlineCodeState);
+                backtickBuffer = "";
+            }
+        }
+
+        function addTextToElement(text, isCode) {
+            if (!currentContainer) return;
+
+            stats.chars += text.length;
+
+            if (isCode && currentCodeElement) {
+                // Add to the current code element
+                currentCodeElement.appendChild(document.createTextNode(text));
+            } else {
+                // Add as regular text
+                const span = document.createElement("span");
+                span.appendChild(document.createTextNode(text));
+                currentContainer.appendChild(span);
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('charCount').textContent = stats.chars;
+            document.getElementById('inlineCodeCount').textContent = stats.inlineCode;
+            document.getElementById('codeBlockCount').textContent = stats.codeBlocks;
+        }
+
+        function clearDemo() {
+            const container = document.getElementById('markdownContainer');
+            container.innerHTML = '';
+            stats = { chars: 0, inlineCode: 0, codeBlocks: 0 };
+            updateStats();
+            inlineCodeState = false;
+            codeBlockState = false;
+            backtickBuffer = "";
+            currentCodeElement = null;
+        }
+    </script>
+</body>
+</html>

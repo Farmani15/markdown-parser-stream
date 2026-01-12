@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming Markdown Parser Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .demo-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .demo-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 1em;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-stream {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-stream:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-clear {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-clear:hover {
+            background: #e0e0e0;
+        }
+
+        .output-box {
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            font-size: 1em;
+            line-height: 1.6;
+            min-height: 150px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Inline code styling */
+        .inline-code {
+            background: #f0f0f0;
+            color: #d73a49;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+        }
+
+        /* Code block styling */
+        .code-block {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            overflow-x: auto;
+            display: block;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-box {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .feature-list {
+            list-style: none;
+            line-height: 2;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Streaming Markdown Parser</h1>
+            <p>Real-time parsing with inline code and code blocks</p>
+        </div>
+
+        <div class="demo-section">
+            <h2>Live Demo</h2>
+            <div class="controls">
+                <button class="btn-stream" onclick="runStream()">▶ Start Stream</button>
+                <button class="btn-clear" onclick="clearOutput()">🗑 Clear</button>
+            </div>
+            <div id="markdownContainer" class="output-box"></div>
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-label">Characters</div>
+                    <div class="stat-value" id="charCount">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Code Elements</div>
+                    <div class="stat-value" id="codeCount">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Code Blocks</div>
+                    <div class="stat-value" id="blockCount">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>Features</h2>
+            <ul class="feature-list">
+                <li>✅ Inline code with single backticks: <span class="inline-code">like this</span></li>
+                <li>✅ Code blocks with triple backticks for multi-line code</li>
+                <li>✅ Handles tokens split across backticks seamlessly</li>
+                <li>✅ Streaming tokens of random size (2-20 characters)</li>
+                <li>✅ Real-time statistics tracking</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Streaming Markdown Parser
+        class MarkdownParser {
+            constructor() {
+                this.inCodeBlock = false;
+                this.inInlineCode = false;
+                this.backtickBuffer = '';
+                this.currentElement = null;
+            }
+
+            addToken(token, container) {
+                if (!container) return;
+
+                this.currentElement = container;
+                let i = 0;
+
+                while (i < token.length) {
+                    const char = token[i];
+
+                    if (char === '`') {
+                        this.backtickBuffer += '`';
+
+                        if (this.backtickBuffer === '```') {
+                            // Exit inline code if needed before entering code block
+                            if (this.inInlineCode) {
+                                this.inInlineCode = false;
+                            }
+                            this.inCodeBlock = !this.inCodeBlock;
+                            this.backtickBuffer = '';
+                        } else if (this.backtickBuffer === '`' && !this.inCodeBlock) {
+                            // Check if we can complete inline code
+                            if (this.inInlineCode) {
+                                this.inInlineCode = false;
+                                this.backtickBuffer = '';
+                            } else {
+                                this.inInlineCode = true;
+                                this.backtickBuffer = '';
+                            }
+                        }
+                    } else {
+                        // Flush buffer before processing regular character
+                        if (this.backtickBuffer) {
+                            this.addTextToElement(this.backtickBuffer);
+                            this.backtickBuffer = '';
+                        }
+
+                        this.addTextToElement(char);
+                    }
+
+                    i++;
+                }
+
+                // Flush remaining buffer
+                if (this.backtickBuffer && i === token.length) {
+                    if (this.backtickBuffer.length === 1 || this.backtickBuffer.length === 2) {
+                        // Keep potential backticks in buffer
+                    }
+                }
+            }
+
+            addTextToElement(text) {
+                if (!this.currentElement || !text) return;
+
+                const span = document.createElement('span');
+
+                if (this.inCodeBlock) {
+                    span.className = 'code-block';
+                } else if (this.inInlineCode) {
+                    span.className = 'inline-code';
+                }
+
+                span.textContent = text;
+                this.currentElement.appendChild(span);
+            }
+        }
+
+        let currentParser = new MarkdownParser();
+
+        const blogpostMarkdown = `# control
+
+*humans should focus on bigger problems*
+
+## Setup
+
+\`\`\`bash
+git clone git@github.com:anysphere/control
+\`\`\`
+
+\`\`\`bash
+./init.sh
+\`\`\`
+
+## Folder structure
+
+**The most important folders are:**
+
+1. \`vscode\`: this is our fork of vscode, as a submodule.
+2. \`milvus\`: this is where our Rust server code lives.
+3. \`schema\`: this is our Protobuf definitions for communication between the client and the server.
+
+Each of the above folders should contain fairly comprehensive README files; please read them.
+
+Some less important folders:
+
+1. \`release\`: this is a collection of scripts and guides for releasing various things.
+2. \`infra\`: infrastructure definitions for the on-prem deployment.
+3. \`third_party\`: where we keep our vendored third party dependencies.
+
+## Miscellaneous things
+
+##### Where to find rust-proto definitions
+
+They are in a file called \`aiserver.v1.rs\`. Run \`rg --files --no-ignore bazel-out | rg aiserver.v1.rs\` to find the file.
+
+## Releasing
+
+Within \`vscode/\`:
+
+- Bump the version
+- Then:
+
+\`\`\`
+git checkout build-todesktop
+git merge main
+git push origin build-todesktop
+\`\`\`
+
+- Wait for 14 minutes for gulp and ~30 minutes for todesktop
+- Go to todesktop.com, test the build locally and hit release`;
+
+        let streamInterval = null;
+
+        function runStream() {
+            clearOutput();
+            currentParser = new MarkdownParser();
+
+            const tokens = [];
+            let remaining = blogpostMarkdown;
+            while (remaining.length > 0) {
+                const len = Math.floor(Math.random() * 18) + 2;
+                tokens.push(remaining.slice(0, len));
+                remaining = remaining.slice(len);
+            }
+
+            let index = 0;
+            streamInterval = setInterval(() => {
+                if (index < tokens.length) {
+                    const container = document.getElementById('markdownContainer');
+                    currentParser.addToken(tokens[index], container);
+                    updateStats();
+                    index++;
+                } else {
+                    clearInterval(streamInterval);
+                }
+            }, 20);
+        }
+
+        function clearOutput() {
+            document.getElementById('markdownContainer').innerHTML = '';
+            updateStats();
+        }
+
+        function updateStats() {
+            const container = document.getElementById('markdownContainer');
+            const text = container.innerText || '';
+            const inlineElements = container.querySelectorAll('.inline-code').length;
+            const codeBlocks = container.querySelectorAll('.code-block').length;
+
+            document.getElementById('charCount').textContent = text.length;
+            document.getElementById('codeCount').textContent = inlineElements;
+            document.getElementById('blockCount').textContent = codeBlocks;
+        }
+    </script>
+</body>
+</html>
